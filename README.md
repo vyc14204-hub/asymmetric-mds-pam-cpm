@@ -49,10 +49,13 @@ d_CPM^2(i,j) = 2 * c_ij^2 + Σ_{k≠i,j} (c_ki - c_kj)^2
 ## ファイル
 
 ```
-pam_cpm_mds.R                  分析コード（上から下へ実行）
-data/fdi_2023_oecd.csv         対外直接投資ポジション（OECD, 2023年末, 8か国, 米ドル）
-data/fdi_2023_oecd_source.md   データの出典・取得条件・向きの確認・年の選択理由
+PAM/pam_mds.R              PAM の分析コード（上から下へ実行）
+PAM/data/                  データと出典
+CPM/cpm_mds.R              CPM の分析コード（上から下へ実行）
+CPM/data/                  データと出典（PAM と同一）
 ```
+
+2本の論文はそれぞれ独立したフォルダに分けてある。データは共通である。
 
 ## データ
 
@@ -71,11 +74,22 @@ OECD Data Explorer / SDMX（2026年8月19日取得）。
 
 ## 実行
 
+PAM（smacof が要る）
+
 ```r
 install.packages(c("ggplot2", "ggrepel", "smacof"))
 
-fdi_2023_oecd <- read.csv("data/fdi_2023_oecd.csv")
-source("pam_cpm_mds.R")
+fdi_2023_oecd <- read.csv("PAM/data/fdi_2023_oecd.csv")
+source("PAM/pam_mds.R")
+```
+
+CPM（smacof は不要）
+
+```r
+install.packages(c("ggplot2", "ggrepel"))
+
+fdi_2023_oecd <- read.csv("CPM/data/fdi_2023_oecd.csv")
+source("CPM/cpm_mds.R")
 ```
 
 コードは関数にまとめず、上から下へ順に読める形で書いてある。
