@@ -4,8 +4,8 @@
 #  上から下へ順に読める形で書いてある。関数にまとめていない。
 #  冗長だが、どの行が何をしているかを追えることを優先している。
 #
-#  前提：R Canvas のシート fdi_2023_oecd
-#        （OECD 対外直接投資ポジション 2023年末、行=投資国、列=投資先、単位=米ドル）
+#  前提：data/fdi_2023_oecd.csv（このリポジトリに同梱）
+#        （OECD 対外直接投資ポジション 2023年末、行=投資国、列=投資先、単位=10億米ドル）
 #  必要：install.packages(c("ggplot2", "ggrepel"))
 # ============================================================================
 
@@ -17,7 +17,7 @@ library(ggrepel)
 #  1. データを行列にする
 # ============================================================================
 
-fdi <- fdi_2023_oecd
+fdi <- read.csv("data/fdi_2023_oecd.csv", fileEncoding = "UTF-8-BOM")
 rownames(fdi) <- fdi$country
 T <- data.matrix(fdi[, -1])     # 1列目（国名）を除く
 
@@ -26,21 +26,21 @@ diag(T) <- NA                   # 自国に対する値は無い
 nm <- rownames(T)
 n  <- nrow(T)                   # 8
 
-print(T / 1e9)                  # 10億ドル単位で表示
+print(T)                        # 単位は10億米ドル
 
 
 # ============================================================================
 #  2. 投資額を非類似度に変換し、歪対称成分を取り出す
 # ============================================================================
-#     d_ij = -log(T_ij)
+#     δ_ij = -log(T_ij)
 #
 # 歪対称成分 A は非類似度への加法定数に不変なので、対数変換でよい。
 # 循環成分 C は A の線形変換なので同じ不変性をもつ。
 
-D <- -log(T)
-diag(D) <- 0
+Delta <- -log(T)
+diag(Delta) <- 0
 
-A <- (D - t(D)) / 2
+A <- (Delta - t(Delta)) / 2
 
 
 # ============================================================================
@@ -77,17 +77,17 @@ cat(sprintf("平方和  A = %.3f = G %.3f (%.1f%%) + C %.3f (%.1f%%)\n",
 #
 # C の第 i 列と第 j 列のユークリッド距離。
 
-CPM2 <- matrix(0, n, n, dimnames = list(nm, nm))
+d_CPM2 <- matrix(0, n, n, dimnames = list(nm, nm))
 
 for (i in 1:n) {
   for (j in 1:n) {
     if (i != j) {
-      CPM2[i, j] <- sum((C[, i] - C[, j])^2)
+      d_CPM2[i, j] <- sum((C[, i] - C[, j])^2)
     }
   }
 }
 
-CPM <- sqrt(CPM2)
+CPM <- sqrt(d_CPM2)
 
 
 # ============================================================================
@@ -96,26 +96,26 @@ CPM <- sqrt(CPM2)
 # C も歪対称かつ対角ゼロなので、次の分解が成り立つはず。
 #     d_CPM^2 = 2 c_ij^2 + sum_{k != i,j} (c_ki - c_kj)^2
 
-CDD2 <- C^2                                        # 直接項
-CTP2 <- matrix(0, n, n, dimnames = list(nm, nm))   # 第三者項
+c2     <- C^2                                      # 直接項
+third2 <- matrix(0, n, n, dimnames = list(nm, nm))  # 第三者項
 
 for (i in 1:n) {
   for (j in 1:n) {
     if (i != j) {
       k <- setdiff(1:n, c(i, j))
-      CTP2[i, j] <- sum((C[k, i] - C[k, j])^2)
+      third2[i, j] <- sum((C[k, i] - C[k, j])^2)
     }
   }
 }
 
 cat("C についても分解が成立するか :",
-    all(abs(CPM2 - (2 * CDD2 + CTP2)) < 1e-10), "\n")
+    all(abs(d_CPM2 - (2 * c2 + third2)) < 1e-10), "\n")
 
-share <- 2 * CDD2 / CPM2
+share <- 2 * c2 / d_CPM2
 diag(share) <- NA
 cat(sprintf("直接項の寄与 : 最小 %.1f%%  最大 %.1f%%  平均 %.1f%%\n",
-            min(share, na.rm = TRUE), max(share, na.rm = TRUE),
-            mean(share, na.rm = TRUE)))
+            100 * min(share, na.rm = TRUE), 100 * max(share, na.rm = TRUE),
+            100 * mean(share, na.rm = TRUE)))
 
 
 # ============================================================================
@@ -151,7 +151,7 @@ print(p)
 
 
 # ============================================================================
-#  8. 表
+#  8. 表3のもとになる一覧
 # ============================================================================
 
 tbl <- data.frame()
@@ -161,9 +161,9 @@ for (i in 1:(n - 1)) {
     tbl <- rbind(tbl, data.frame(
       pair   = paste(nm[i], nm[j], sep = "-"),
       c_abs  = round(abs(C[i, j]), 3),
-      third  = round(sqrt(CTP2[i, j]), 3),
+      third  = round(sqrt(third2[i, j]), 3),
       CPM    = round(CPM[i, j], 3),
-      share  = round(2 * CDD2[i, j] / CPM2[i, j] * 100, 1)
+      share  = round(2 * c2[i, j] / d_CPM2[i, j] * 100, 1)
     ))
   }
 }

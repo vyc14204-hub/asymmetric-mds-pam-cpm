@@ -17,7 +17,7 @@ OECD Data Explorer / SDMX. https://sdmx.oecd.org/ （2026年8月19日取得）
 | TYPE_ENTITY | `ALL`（全事業体） |
 | LEVEL_COUNTERPART | `IMC`（即時相手国） |
 | SECTOR / ACTIVITY | `S1` / `_T` |
-| 単位 | 米ドル（`UNIT_MULT` を乗じて実額に換算済み） |
+| 単位 | 10億米ドル（小数第1位に丸め）。論文の表1と同一の値であり、分析はこの値に対して行う。取得時の生値は米ドル（`UNIT_MULT` を乗じて実額に換算済み） |
 | 対象国 | USA, JPN, KOR, DEU, FRA, NLD, BEL, LUX |
 
 生レスポンスの要約は `fdi_2023_raw.json`（取得時刻を含む）。
