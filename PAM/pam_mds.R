@@ -153,3 +153,49 @@ cat("\n国別 |θ| の合計（度）\n")
 print(round(sort(total, decreasing = TRUE), 1))
 
 cat("第1次元との相関 :", round(cor(total, X[, 1]), 3), "\n")
+
+
+# ============================================================================
+#  8. 検証：偏角の上限は 45 度である（90 度ではない）
+# ============================================================================
+# 非類似度が非負なら |a_ij| = |δ_ij - δ_ji| / 2 <= (δ_ij + δ_ji) / 2 = s_ij
+# が恒等的に成り立つ。したがって |θ| は 45 度を超えない。
+
+off <- !diag(n)
+cat("\n--- 偏角の値域 ---\n")
+cat("  |a| <= s がすべて成り立つか :", all(abs(A[off]) <= S[off] + 1e-12), "\n")
+cat("  観測された最大 |θ|          :", round(max(abs(theta_deg)), 3), "度\n")
+cat("  理論上の上限                : 45 度\n")
+
+
+# ============================================================================
+#  9. 検証：この変換のもとで PAM は往復比のみの関数である
+# ============================================================================
+#     δ_ij = c / T_ij を代入すると a/s = (T_ji - T_ij) / (T_ji + T_ij) となり、
+#     θ_ij = arctan(T_ji / T_ij) - 45度
+# が厳密に成り立つ。定数 c は約分されて消え、投資規模は偏角に影響しない。
+
+ident <- matrix(0, n, n, dimnames = list(nm, nm))
+for (i in 1:n) for (j in 1:n) if (i != j)
+  ident[i, j] <- atan(T[j, i] / T[i, j]) * 180 / pi - 45
+
+cat("\n--- 恒等式 θ_ij = arctan(T_ji / T_ij) - 45度 ---\n")
+cat("  最大絶対誤差 :", format(max(abs(theta_deg[off] - ident[off])), digits = 3), "\n")
+
+
+# ============================================================================
+#  10. 検証：|a| を使う方法とは重視するペアが異なる
+# ============================================================================
+
+u   <- upper.tri(theta)
+cmp <- data.frame(pair       = outer(nm, nm, paste, sep = "-")[u],
+                  theta_deg  = round(abs(theta_deg[u]), 2),
+                  rank_theta = rank(-abs(theta_deg[u])),
+                  abs_a      = round(abs(A[u]), 3),
+                  rank_a     = rank(-abs(A[u])))
+
+cat("\n--- |θ| 上位5ペア ---\n")
+print(head(cmp[order(cmp$rank_theta), ], 5), row.names = FALSE)
+cat("\n--- |a| 上位5ペア ---\n")
+print(head(cmp[order(cmp$rank_a), ], 5), row.names = FALSE)
+cat("\n順位相関（Spearman）:", round(cor(cmp$rank_theta, cmp$rank_a), 3), "\n")
