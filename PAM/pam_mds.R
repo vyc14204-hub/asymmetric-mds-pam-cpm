@@ -143,20 +143,17 @@ print(tbl[order(-abs(tbl$theta_deg)), ], row.names = FALSE)
 
 
 # ============================================================================
-#  8. 布置の解釈に使う量
+#  8. 国別の偏角の総和（本文の JPN 197.5 度）
 # ============================================================================
-# 各対象が関与する偏角の総和。第1次元が何に対応しているかを見るため。
 
 total <- colSums(abs(theta_deg))
 
 cat("\n国別 |θ| の合計（度）\n")
 print(round(sort(total, decreasing = TRUE), 1))
 
-cat("第1次元との相関 :", round(cor(total, X[, 1]), 3), "\n")
-
 
 # ============================================================================
-#  8. 検証：偏角の上限は 45 度である（90 度ではない）
+#  9. 検証：偏角の上限は 45 度である（90 度ではない）
 # ============================================================================
 # 非類似度が非負なら |a_ij| = |δ_ij - δ_ji| / 2 <= (δ_ij + δ_ji) / 2 = s_ij
 # が恒等的に成り立つ。したがって |θ| は 45 度を超えない。
@@ -199,3 +196,75 @@ print(head(cmp[order(cmp$rank_theta), ], 5), row.names = FALSE)
 cat("\n--- |a| 上位5ペア ---\n")
 print(head(cmp[order(cmp$rank_a), ], 5), row.names = FALSE)
 cat("\n順位相関（Spearman）:", round(cor(cmp$rank_theta, cmp$rank_a), 3), "\n")
+
+
+# ============================================================================
+#  12. 対数変換の歪対称成分との関係（3.2 節の恒等式 tan θ = tanh(a_log)）
+# ============================================================================
+# 逆数変換の代わりに対数変換 -log T を使ったときの歪対称成分は
+#     a_log_ij = (1/2) log(T_ji / T_ij)
+# で、tan(θ_ij) = tanh(a_log_ij) が厳密に成り立つ。
+# したがって |θ| は |a_log| の狭義単調変換で、28ペアの順位は完全に一致する。
+
+Delta_log <- -log(T)
+diag(Delta_log) <- 0
+A_log <- (Delta_log - t(Delta_log)) / 2
+AL    <- abs(A_log)
+
+cat("\n--- 恒等式 tan θ = tanh(a_log) ---\n")
+cat("  最大絶対誤差                        :",
+    format(max(abs(tan(theta[off]) - tanh(A_log[off]))), digits = 3), "\n")
+cat("  順位相関（Spearman）|θ| vs |a_log|  :", round(cor(PAM[u], AL[u], method = "spearman"), 3), "\n")
+cat("  積率相関（Pearson） |θ| vs |a_log|  :", round(cor(PAM[u], AL[u]), 3), "\n")
+
+# 順序水準（ordinal）の MDS は順位しか使わないので、同じ初期布置から出発すれば
+# 両者は同一の布置に収束する。初期布置は |θ| の Torgerson 解に固定する。
+X0 <- torgerson(as.dist(PAM), p = 2)
+fit_ord_pam <- mds(as.dist(PAM), ndim = 2, type = "ordinal", init = X0)
+fit_ord_log <- mds(as.dist(AL),  ndim = 2, type = "ordinal", init = X0)
+cat("  ordinal stress-1  |θ| :", round(fit_ord_pam$stress, 4),
+    " |a_log| :", round(fit_ord_log$stress, 4), "\n")
+cat("  ordinal 布置の最大座標差 :",
+    format(max(abs(fit_ord_pam$conf - fit_ord_log$conf)), digits = 3), "\n")
+
+# 比率水準では有界化（|θ| <= 45度）の分だけ違いが出る
+set.seed(123)
+fit_log <- mds(as.dist(AL), ndim = 2, type = "ratio")
+cat("  ratio stress-1  |θ| :", round(fit$stress, 4), " |a_log| :", round(fit_log$stress, 4), "\n")
+
+
+# ============================================================================
+#  13. 動径との関係：絶対値法の順位は関係の弱さの順位とほぼ重なる
+# ============================================================================
+#     r_ij = sqrt(s_ij^2 + a_ij^2)  … 動径。逆数変換のもとでは関係が弱いほど大きい
+
+R_mat <- sqrt(S^2 + A^2)
+
+cat("\n--- 動径との順位相関（Spearman）---\n")
+cat("  |a| vs r :", round(cor(abs(A[u]), R_mat[u], method = "spearman"), 3), "\n")
+cat("  |θ| vs r :", round(cor(PAM[u],   R_mat[u], method = "spearman"), 3), "\n")
+
+# 弱い方から見た動径の順位（本文の「弱い方から15位」）
+rank_weak <- rank(-R_mat[u])
+pairs_u   <- outer(nm, nm, paste, sep = "-")[u]
+cat("  KOR-BEL の動径順位（弱い方から）:", rank_weak[pairs_u == "KOR-BEL"], "\n")
+cat("  USA-JPN の動径順位（弱い方から）:", rank_weak[pairs_u == "USA-JPN"], "\n")
+
+
+# ============================================================================
+#  14. 図2：動径と偏角の散布図（診断図）
+# ============================================================================
+# 横軸を対数目盛の動径、縦軸を |θ|（度）にすると、等角線が水平線になる。
+# 同じ高さにある点は、規模がどれだけ違っても相対的不均衡が等しい。
+
+df2 <- data.frame(pair = pairs_u, r = R_mat[u], theta = abs(theta_deg[u]))
+
+p2 <- ggplot(df2, aes(r, theta, label = pair)) +
+  geom_hline(yintercept = 45, linetype = "dashed", colour = "grey40") +
+  geom_point(size = 3, colour = "steelblue") +
+  geom_text_repel(size = 3.5, seed = 123) +
+  scale_x_log10() +
+  labs(x = "動径 r_ij（対数目盛）", y = "偏角の絶対値 |θ_ij|（度）") +
+  theme_minimal(base_size = 12)
+
+print(p2)
