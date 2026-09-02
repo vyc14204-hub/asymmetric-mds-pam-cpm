@@ -261,7 +261,6 @@ cat("  USA-JPN の動径順位（弱い方から）:", rank_weak[pairs_u == "USA
 df2 <- data.frame(pair = pairs_u, r = R_mat[u], theta = abs(theta_deg[u]))
 
 p2 <- ggplot(df2, aes(r, theta, label = pair)) +
-  geom_hline(yintercept = 45, linetype = "dashed", colour = "grey40") +
   geom_point(size = 3, colour = "steelblue") +
   geom_text_repel(size = 3.5, seed = 123) +
   scale_x_log10() +
