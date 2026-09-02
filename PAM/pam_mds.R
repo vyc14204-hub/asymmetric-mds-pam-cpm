@@ -217,8 +217,9 @@ cat("  最大絶対誤差                        :",
 cat("  順位相関（Spearman）|θ| vs |a_log|  :", round(cor(PAM[u], AL[u], method = "spearman"), 3), "\n")
 cat("  積率相関（Pearson） |θ| vs |a_log|  :", round(cor(PAM[u], AL[u]), 3), "\n")
 
-# 順序水準（ordinal）の MDS は順位しか使わないので、同じ初期布置から出発すれば
-# 両者は同一の布置に収束する。初期布置は |θ| の Torgerson 解に固定する。
+# 順序水準（ordinal）の MDS は順位しか使わないので、両者の適合の問題は同一である。
+# 初期布置は |θ| の Torgerson 解に固定する。smacof は初回の反復で非類似度の値そのものを
+# 使うため座標はわずかに異なる（最大差 0.008）が、Stress-1 は一致する。
 X0 <- torgerson(as.dist(PAM), p = 2)
 fit_ord_pam <- mds(as.dist(PAM), ndim = 2, type = "ordinal", init = X0)
 fit_ord_log <- mds(as.dist(AL),  ndim = 2, type = "ordinal", init = X0)
