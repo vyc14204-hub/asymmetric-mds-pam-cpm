@@ -228,3 +228,59 @@ cat("  B と -C^2 の最大差 :",
     format(max(abs(-0.5 * J %*% (CPM^2) %*% J + C %*% C)), digits = 3), "\n")
 cat("  C の特異値（対で現れる）:", paste(round(svd(C)$d, 3), collapse = " "), "\n")
 cat("  <G, C> =", format(sum(G * C), digits = 3), "（直交）\n")
+
+
+# ============================================================================
+#  11. 検証：命題2（歪対称成分そのものの距離との関係）
+# ============================================================================
+#     d_APM^2(i,j) = d_CPM^2(i,j) + n (phi_i - phi_j)^2
+#
+# 循環成分に移ることで取り除かれるのは、2対象の勾配の差の二乗に n を掛けた
+# 量だけである。第三者は関与しない。
+
+d_APM2 <- matrix(0, n, n, dimnames = list(nm, nm))
+for (i in 1:n) for (j in 1:n) if (i != j)
+  d_APM2[i, j] <- sum((A[, i] - A[, j])^2)      # 歪対称成分そのものの列間距離^2
+
+gap <- n * outer(phi, phi, "-")^2               # n (phi_i - phi_j)^2
+
+cat("\n--- 命題2：d_APM^2 = d_CPM^2 + n(phi_i - phi_j)^2 ---\n")
+cat("  最大絶対誤差 :", format(max(abs(d_APM2 - (d_CPM2 + gap))), digits = 3), "\n")
+u <- upper.tri(A)
+cat("  相関 d_APM vs d_CPM :", round(cor(sqrt(d_APM2[u]), sqrt(d_CPM2[u])), 3), "\n")
+
+
+# ============================================================================
+#  12. 検証：貿易データでの追試（考察で報告する 77.9% / 22.1% / 92.1%）
+# ============================================================================
+# 別の領域のデータでも勾配成分が期待値 2/n を大きく上回るかを確かめる。
+# データは APM 論文のリポジトリと同じ UN Comtrade 2023年の二国間輸出額。
+
+trade_path <- "../../repo-apm-add-tpd/data/trade_2023_comtrade.csv"
+
+if (file.exists(trade_path)) {
+  tr  <- read.csv(trade_path, fileEncoding = "UTF-8-BOM")
+  rownames(tr) <- tr$country
+  T2  <- data.matrix(tr[, -1])
+  diag(T2) <- NA
+  n2  <- nrow(T2)
+
+  D2 <- -log(T2); diag(D2) <- 0
+  A2 <- (D2 - t(D2)) / 2
+  phi2 <- rowSums(A2) / n2
+  G2 <- outer(phi2, phi2, "-")
+  C2m <- A2 - G2
+
+  ss <- c(A = sum(A2^2), G = sum(G2^2), C = sum(C2m^2))
+  cat("\n--- 貿易データ（UN Comtrade 2023）での追試 ---\n")
+  cat(sprintf("  勾配成分 %.1f%%  循環成分 %.1f%%  （構造なしの期待値 %.1f%%）\n",
+              100 * ss["G"] / ss["A"], 100 * ss["C"] / ss["A"], 200 / n2))
+
+  d2 <- matrix(0, n2, n2)
+  for (i in 1:n2) for (j in 1:n2) if (i != j) d2[i, j] <- sum((C2m[, i] - C2m[, j])^2)
+  ev2 <- cmdscale(as.dist(sqrt(d2)), k = 2, eig = TRUE)$eig
+  cat(sprintf("  循環成分の2次元説明率 %.1f%%  最小固有値 %.2e\n",
+              100 * sum(ev2[1:2]) / sum(abs(ev2)), min(ev2)))
+} else {
+  cat("\n（貿易データが見つからないため追試は省略：", trade_path, "）\n")
+}
